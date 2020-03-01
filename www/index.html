@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="css/index.css">
+    <title>GPS Logger</title>
+  </head>
+    <body>
+      <div id='app'>
+        <header>
+          GPS Logger
+        </header>
+        <div id='mapa'>Google maps not available</div>
+        <div id="startButtonDiv">
+          <button id="startButton"><i class="fa fa-play fa-3x"></i></button>
+          <button id="stopButton"><i class="fa fa-close fa-3x"></i></button>
+        </div>
+        <div id='data'>
+          <div class="wrapper">
+            <p id="distance">Distance:</p>
+          </div>
+            <div class="wrapper">
+            <p id="time">Time:</p>
+          </div>
+            <div class="wrapper">
+            <p id="pace">Pace:</p>
+          </div>
+          <div class="wrapper">
+            <p id="lap">Last lap:</p>
+          </div>
+        </div>
+        <footer>(c) mkrok, 2020</footer>
+      </div>
+      <script type="text/javascript" src="cordova.js"></script>
+      <script type="text/javascript" src="js/index.js"></script>
+      <script src="https://maps.googleapis.com/maps/api/js?v=3.30&key=AIzaSyBYtFG6gg-yuuYqav4XKq7d5P2I1jQIEE0&amp;callback=initMap"></script>
+    </body>
+</html>

@@ -1,0 +1,404 @@
+var zum = 3;
+var map;
+var cordovaPos = {lat: 50.061667, lng: 19.937222};
+var CENTER_MAP = true;
+var SOUND = true;
+var myTrackCoordinates;
+var myTrack;
+var myMarker;
+var year, month, day, hours, minutes, seconds;
+var startMilliseconds, previousMilliseconds, tickMilliseconds;
+var start;
+var distance = 0;
+var distanceFlatEarth = 0;
+var lat = '';
+var lon = '';
+var lapTime = 0;
+var lap = 0;
+const lapDistance = 1000;
+var pace = 0;
+var logFileName = 'dupa.gpx';
+var fileHandler;
+var writer;
+const activity = 'Running';
+var maxSpeed = 0;
+var startPressed = false;
+var initialised = false;
+var timeDisplay;
+
+const listDir = path => {
+  window.resolveLocalFileSystemURL(path,
+    function (fileSystem) {
+      var reader = fileSystem.createReader();
+      reader.readEntries(
+        function (entries) {
+          // alert(JSON.stringify(Object.values(entries)[0]));
+        },
+        function (err) {
+          console.log(err);
+        }
+      );
+    }, function (err) {
+      console.log(err);
+    }
+  );
+}
+
+const say = text => {
+  if (SOUND) {
+    TTS.speak({
+          text: text,
+          locale: 'en-GB',
+          rate: 1
+      },
+      function () {},
+      function (reason) {}
+    );
+  }
+};
+
+const GPX_HEADER = '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n' +
+  '<gpx version=\"1.1\" creator=\"GPS Logger, (c) mkrok\" ' +
+  'xsi:schemaLocation=\"http://www.topopgrafix.com/GPX/1/1 ' +
+  'http://www.topografix.com/GPX/1/1/gpx.datStringxsd ' +
+  'http://www.garmin.com/xmlschemas/GpxExtensions/v3 ' +
+  'http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd ' +
+  'http://www.garmin.com/xmlschemas/TrackPointExtension/v1 ' +
+  'http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd\" ' +
+  'xmlns=\"http://www.topografix.com/GPX/1/1\" ' +
+  'xmlns:gpxtpx=\"http://www.garmin.com/xmlschemas/TrackPointExtension/v1\" ' +
+  'xmlns:gpxx=\"http://www.garmin.com/xmlschemas/GpxExtensions/v3\" ' +
+  'xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n' +
+  '  <trk>\n' + '    <type>' + activity.toUpperCase() + '</type>\n' +
+  '    <trkseg>\n';
+
+const write = data => {
+  if (!fileHandler) {
+    alert('Error writing file!');
+    return -1;
+  }
+  if (fileHandler === -1) {
+    // log file closed by the stopButton click
+    return -2;
+  }
+  fileHandler.createWriter(function(writer) {
+    writer.seek(writer.length);
+    var blob = new Blob([data], { type: 'text/plain' });
+    writer.write(blob);
+  });
+};
+
+const degreesToRadians = degrees => degrees * Math.PI / 180;
+
+const distanceInKmBetweenEarthCoordinates = (position1, position2) => {
+  const lat1 = position1.lat;
+  const lon1 = position1.lng;
+  const lat2 = position2.lat;
+  const lon2 = position2.lng;
+  if ( ! (lat1 && lat2 && lon1 && lon2) ) return 0;
+
+  const earthRadiusKm = 6371;
+  const dLat = degreesToRadians(lat2-lat1);
+  const dLon = degreesToRadians(lon2-lon1);
+
+  lat1Rad = degreesToRadians(lat1);
+  lat2Rad = degreesToRadians(lat2);
+
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1Rad) * Math.cos(lat2Rad);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return earthRadiusKm * c;
+};
+
+const secs = minutes => parseInt((minutes - parseInt(minutes, 10)) * 60, 10);
+
+const setTime = time => {
+  // side effect - to be rewritten
+  year = (time.getFullYear()).toString();
+  month = time.getMonth() + 1 < 10 ? '0' + (time.getMonth() + 1).toString() : (time.getMonth() + 1).toString();
+  day = time.getDate() < 10 ? '0' + (time.getDate ()).toString() : (time.getDate()).toString();
+  hours = time.getHours() < 10 ? '0' + (time.getHours()).toString() : (time.getHours()).toString();
+  minutes = time.getMinutes() < 10 ? '0' + (time.getMinutes()).toString() : (time.getMinutes()).toString();
+  seconds = time.getSeconds() < 10 ? '0' + (time.getSeconds()).toString() : (time.getSeconds()).toString();
+};
+
+var app = {
+    // Application Constructor
+    initialize: function() {
+        document.addEventListener('deviceready', this.onDeviceReady.bind(this), false);
+    },
+
+    // deviceready Event Handler
+    //
+    // Bind any cordova events here. Common events are:
+    // 'pause', 'resume', etc.
+    onDeviceReady: function() {
+        this.receivedEvent();
+    },
+
+    // Update DOM on a Received Event
+    receivedEvent: function() {
+
+      cordova.plugins.backgroundMode.enable();
+      cordova.plugins.backgroundMode.on('activate', function() {
+        cordova.plugins.backgroundMode.disableWebViewOptimizations();
+      });
+
+      window.onerror = function (msg, url, lineNo, columnNo, error) {
+        var string = msg.toLowerCase();
+        var substring = "script error";
+        if (string.indexOf(substring) > -1){
+          alert('Script Error: See Browser Console for Detail');
+        } else {
+          var message = [
+            'Message: ' + msg,
+            'URL: ' + url,
+            'Line: ' + lineNo,
+            'Column: ' + columnNo,
+            'Error object: ' + JSON.stringify(error)
+          ].join(' - ');
+          alert(message);
+        }
+        return false;
+      };
+
+      window.addEventListener('load', () => {
+
+        const setButtons = setInterval(() => {
+          if ( document.getElementById('geo') && document.getElementById('sound')) {
+            document.getElementById('geo').addEventListener('click', function () {
+              CENTER_MAP = !CENTER_MAP;
+              if (CENTER_MAP) {
+                map.setCenter(cordovaPos);
+                document.getElementById('geo').style.color = '#333';
+              } else {
+                document.getElementById('geo').style.color = '#bbb';
+              }
+            });
+            document.getElementById('sound').addEventListener('click', function () {
+              SOUND = !SOUND;
+              if (SOUND) {
+                document.getElementById('sound').style.color = '#333';
+              } else {
+                document.getElementById('sound').style.color = '#bbb';
+              }
+            });
+            clearInterval(setButtons);
+          }
+
+        }, 100);
+        // setButtons();
+      });
+
+      document.addEventListener("backbutton", onBackKeyDown, false);
+
+      function onBackKeyDown() {
+          // Handle the back buttons
+          navigator.notification.confirm(
+              'Terminate app?', // message
+              onConfirm,            // callback to invoke with index of button pressed
+              'Exit',           // title
+              ['Cancel', 'Yes']     // buttonLabels
+          );
+      }
+
+      function onConfirm(buttonIndex) {
+          if (buttonIndex === 2) {
+            setTimeout(write('    </trkseg>\n' + '  </trk>\n' + '</gpx>'), 100);
+            setTimeout(navigator.app.exitApp(), 1000);
+          }
+      }
+
+      document.getElementById('stopButton').addEventListener('click', function () {
+        setTimeout(write('    </trkseg>\n' + '  </trk>\n' + '</gpx>'), 100);
+        initialised = false;
+        startPressed = false;
+        clearInterval(timeDisplay);
+        distance = 0;
+        lapTime = 0;
+        fileHandler = -1;
+        document.getElementById('time').innerHTML = 'Time: ';
+        document.getElementById('distance').innerHTML = 'Distance: ';
+        document.getElementById('pace').innerHTML = 'Pace: ';
+        document.getElementById('lap').innerHTML = 'Last lap: ';
+        document.getElementById('startButton').style.display = 'inline-block';
+        document.getElementById('startButton').style.color = 'grey';
+        document.getElementById('stopButton').style.display = 'none';
+      });
+
+      var watchID = navigator.geolocation.watchPosition(
+          function (position) {
+
+            // map refresh
+            cordovaPos = {lat: position.coords.latitude, lng: position.coords.longitude};
+            const newLatLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+            myTrackCoordinates.push(newLatLng);
+            myMarker.setPosition(newLatLng);
+            if (CENTER_MAP) {
+              map.setCenter(cordovaPos);
+            }
+            if (map.getZoom() === 3) {
+                map.setZoom(14);
+            }
+
+            if (!startPressed) {
+              document.getElementById('startButton').style.color = 'red';
+              document.getElementById('startButton').addEventListener('click', () => {
+                document.getElementById('startButton').style.display = 'none';
+                document.getElementById('stopButton').style.display = 'inline-block';
+                startPressed = true;
+              });  // startButton click
+              return -1;   // app not started
+            }
+
+            if (!initialised) {
+              say('Application started');
+              start = new Date();
+              setTime(start);
+              logFileName = year + month + day + '-' + hours + minutes + seconds + '.gpx';
+              startMilliseconds = start.getTime();
+              previousMilliseconds = startMilliseconds;
+              tickMilliseconds = startMilliseconds;
+              timeDisplay = setInterval(() => {
+                const time = new Date ();
+                const currentMilliseconds = time.getTime();
+                const timeGap = parseInt((currentMilliseconds - startMilliseconds)/1000, 10);
+                const s = Number.isNaN(timeGap%60) ? 0 : timeGap%60;
+                const m = Number.isNaN(parseInt((timeGap / 60) % 60)) ? 0 : parseInt((timeGap / 60) % 60, 10);
+                const h = Number.isNaN(parseInt((timeGap / 3600))) ? 0 : parseInt((timeGap / 3600), 10);
+                const ss = s < 10 ? '0' + s.toString() : s.toString();
+                const mm = m < 10 ? '0' + m.toString() : m.toString();
+                const hh = h.toString();
+                document.getElementById('time').innerHTML = 'Time: ' + hh + ':' + mm + ':' + ss;
+              }, 1000);
+
+              window.resolveLocalFileSystemURL(cordova.file.externalDataDirectory, function(dir) {
+                dir.getFile(logFileName, { create: true }, function(file) {
+                  fileHandler = file;
+                  write(GPX_HEADER);
+                });
+              });
+
+              initialised = true;
+              return -2;
+            }
+
+            const time = new Date ();
+            setTime(time);
+            const currentMilliseconds = time.getTime();
+            const timeGap = parseInt((currentMilliseconds - startMilliseconds)/1000, 10);
+            const lastTick = currentMilliseconds - tickMilliseconds;
+            tickMilliseconds = currentMilliseconds;
+            prevPos = {lat: lat, lng: lon};
+            const dist = 1000 * distanceInKmBetweenEarthCoordinates(cordovaPos, prevPos);
+            lat = position.coords.latitude;
+            lon = position.coords.longitude;
+            distance += dist;
+            lap += dist;
+            if (lap >= lapDistance) {
+              say('attention');
+              lap = 0;
+              lapTime = ((currentMilliseconds - previousMilliseconds)/60000).toFixed (2);
+              previousMilliseconds = currentMilliseconds;
+              document.getElementById('lap').innerHTML = 'Lap time: ' + lapTime + ' min';
+              document.getElementById('pace').innerHTML = 'Pace: ' + ((1000*timeGap)/(60*distance)).toFixed(2) + ' min/km';
+              say('distance: ' + (distance/1000).toFixed(0) + ' km\naverage pace: ' +
+                ((1000*timeGap)/(60*distance)).toFixed(2) + ' min/km\nlast lap: ' +
+                parseInt(lapTime, 10) + 'minutes' + secs(lapTime) + 'seconds');
+            }
+
+            // if (lastTick > 0 && position.coords.accuracy <= 7) {
+            //   const speed = 3600 * dist / lastTick;
+            //   if (speed > maxSpeed) {
+            //     maxSpeed = speed;
+            //     document.getElementById('max').innerHTML = 'Max: ' + speed.toFixed(1) + ' km/h  at ' + parseInt(distance/1000) + ' km';
+            //     say('max speed ' + speed.toFixed(1) + 'km/h');
+            //   }
+            // }
+
+            const msg = '      <trkpt lat="' + position.coords.latitude + '" lon="' +
+                position.coords.longitude + '">\n' + '      <ele>' + position.coords.altitude +
+                '</ele>\n' + '      <spd>' + position.coords.speed + '</spd>\n' +
+                '      <time>' + year + '-' + month + '-' + day +
+                'T' + hours + ':' + minutes + ':' + seconds + 'Z</time>\n' +
+                '      </trkpt>\n';
+            write(msg);
+
+            document.getElementById('distance').innerHTML = 'Distance: ' + (distance/ 1000).toFixed(3) + ' km';
+          },
+          function (error) {
+              navigator.notification.alert('Waiting for GPS...');
+          },
+          { maximumAge: 15000, timeout: 20000, enableHighAccuracy: true }
+      );
+    }
+};
+
+function initMap() {
+    // Create an array of styles.
+    var styles = [
+        {
+            stylers: [
+                { hue: '#B3E9FF' },
+                { saturation: -80 },
+                { gamma: 0.30 }
+            ]
+        },
+        {
+            featureType: 'road',
+            elementType: 'geometry',
+            stylers: [
+                { lightness: 100 },
+                { visibility: 'simplified' }
+            ]
+        },
+        {
+            featureType: 'road',
+            elementType: 'labels',
+            stylers: [
+                { visibility: 'on' }
+            ]
+        }
+    ],
+    // Create a new StyledMapType object, passing it the array of styles,
+    // as well as the name to be displayed on the map type control.
+    styledMap = new google.maps.StyledMapType(styles, {name: 'Styled Map'});
+
+    map = new google.maps.Map(document.getElementById('mapa'), {
+        center: cordovaPos,
+        zoom: zum,
+        streetViewControl: false,
+        zoomControl: false,
+        mapTypeControl: false,
+        gestureHandling: 'cooperative',
+        mapTypeControlOptions: {
+            mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
+        },
+        disableDefaultUI: true
+    });
+
+    //Associate the styled map with the MapTypeId and set it to display.
+    map.mapTypes.set('map_style', styledMap);
+    map.setMapTypeId('map_style');
+
+    // add some controls to the map
+    var controlsDiv = document.createElement('div');
+    controlsDiv.innerHTML = '<button id="geo"><i class="fa fa-2x fa-crosshairs"></i></button><button id="sound"><i class="fa fa-2x fa-volume-up"></i></button>';
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(controlsDiv);
+
+    myTrack = new google.maps.Polyline({
+      strokeColor: 'red',
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+    myTrackCoordinates = myTrack.getPath();
+    myTrack.setMap(map);
+
+    myMarker = new google.maps.Marker({
+        position: cordovaPos,
+        map: map
+    });
+    myMarker.setMap(map);
+}
+
+app.initialize();
