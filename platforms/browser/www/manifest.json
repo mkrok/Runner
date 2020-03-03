@@ -1,0 +1,18 @@
+{
+  "background_color": "#FFF",
+  "display": "standalone",
+  "name": "GPS Logger",
+  "short_name": "GPS Logger",
+  "version": "com.mkrok.gps-logger",
+  "description": "yet another application for running and other activities",
+  "author": "mkrok",
+  "icons": [
+    {
+      "src": "res/android/icon.png",
+      "type": "image/png",
+      "sizes": "57x57"
+    }
+  ],
+  "orientation": "portrait",
+  "start_url": "index.html"
+}
