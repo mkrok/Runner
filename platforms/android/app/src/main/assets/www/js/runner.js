@@ -1,3 +1,41 @@
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+/**
+ * Parse date
+ *
+ * @param  {Date|Number} date
+ * @param  {String} format="DD-MM-YYYY"
+ * @returns {String} Returns the string in correct format.
+ *
+ */
+
+const parseNumber = dateNumber =>
+  dateNumber.toString().length === 1 ? `0${dateNumber}` : `${dateNumber}`;
+
+function format(date, format = "DD-MM-YYYY") {
+  if(!(date instanceof Date) || isNaN(date) ){
+    return false;
+  }
+  // dodac formatowanie dla milisekund, np 86400000 = 1day
+  let tempDate = format.toString();
+  tempDate = tempDate.replace("DD", `${parseNumber(date.getDate())}`);
+  tempDate = tempDate.replace("MM", `${parseNumber(date.getMonth() + 1)}`);
+  tempDate = tempDate.replace("YYYY", `${date.getFullYear()}`);
+  tempDate = tempDate.replace(
+    "YY",
+    `${date
+      .getFullYear()
+      .toString()
+      .slice(2, 4)}`
+  );
+
+  return tempDate === format.toString() ? false : tempDate;
+}
+
+module.exports = format;
+
+},{}],2:[function(require,module,exports){
+const formatDate = require('rdate/format');
+
 const errorCallback = error => {
   alert("ERROR: ", error.code);
 };
@@ -21,6 +59,7 @@ function displayFileData(name, data) {
     ? data.split('<time>')[1].split('</time>')[0]
     : false;
   if (!date) return -1;
+  const timer = date.split('T')[1].split(':');
   const distance = data.split('<distance>')[1]
     ? data.split('<distance>')[1].split('</distance>')[0].split(',')
     : false;
@@ -32,7 +71,8 @@ function displayFileData(name, data) {
   const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
   let newRow = tableRef.insertRow();
   let newCell = newRow.insertCell(0);
-  let newText  = document.createTextNode(new Date(date).toDateString());
+  //let newText  = document.createTextNode(new Date(date).toDateString());
+  let newText  = document.createTextNode(formatDate(new Date(date), 'YYYY-MM-DD') + ', ' + timer[0] + ':' + timer[1]);
   newCell.appendChild(newText);
   newCell = newRow.insertCell(1);
   newText = document.createTextNode(distance + 'km');
@@ -425,3 +465,5 @@ var app = {
 
 
 app.initialize();
+
+},{"rdate/format":1}]},{},[2]);
