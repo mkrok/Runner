@@ -7,7 +7,7 @@ var myTrackCoordinates;
 var myTrack;
 var myMarker;
 var year, month, day, hours, minutes, seconds;
-var startMilliseconds, previousMilliseconds, tickMilliseconds;
+var startMilliseconds, previousMilliseconds, tickMilliseconds, currentMilliseconds;
 var start;
 var distance = 0;
 var distanceFlatEarth = 0;
@@ -25,6 +25,64 @@ var maxSpeed = 0;
 var startPressed = false;
 var initialised = false;
 var timeDisplay;
+var logFiles=['no log files found'];
+var logEntries = {};
+
+
+const errorCallback = error => {
+  alert("ERROR: ", error.code);
+};
+
+function readFile(name) {
+  window.resolveLocalFileSystemURL(cordova.file.externalDataDirectory, function(dir) {
+    dir.getFile(name, {}, function(fileEntry) {
+      fileEntry.file(function(file) {
+        var reader = new FileReader();
+        reader.onloadend = function() {
+          displayFileData(name, this.result);
+        };
+        reader.readAsText(file);
+      }, errorCallback);
+    });
+  });
+};
+
+function displayFileData(name, data) {
+  const date = data.split('<time>')[1]
+    ? data.split('<time>')[1].split('</time>')[0]
+    : false;
+  if (!date) return -1;
+  const distance = data.split('<distance>')[1]
+    ? data.split('<distance>')[1].split('</distance>')[0].split(',')
+    : false;
+  if (!distance) return -1;
+  const time = data.split('<totalTime>')[1]
+    ? data.split('<totalTime>')[1].split('</totalTime>')[0];
+    : false;
+  if (!time) return -1;
+  const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
+  let newRow = tableRef.insertRow();
+  let newCell = newRow.insertCell(0);
+  let newText  = document.createTextNode(new Date(date).toDateString());
+  newCell.appendChild(newText);
+  newCell = newRow.insertCell(1);
+  newText = document.createTextNode(distance + 'km');
+  newCell.appendChild(newText);
+  newCell = newRow.insertCell(2);
+  newText = document.createTextNode(time);
+  newCell.appendChild(newText);
+};
+
+const msToTime = s => {
+  var ms = s % 1000;
+  s = (s - ms) / 1000;
+  var secs = s % 60;
+  s = (s - secs) / 60;
+  var mins = s % 60;
+  var hrs = (s - mins) / 60;
+
+  return hrs + ':' + mins + ':' + secs + '.' + ms;
+}
 
 const listDir = path => {
   window.resolveLocalFileSystemURL(path,
@@ -32,14 +90,15 @@ const listDir = path => {
       var reader = fileSystem.createReader();
       reader.readEntries(
         function (entries) {
-          // alert(JSON.stringify(Object.values(entries)[0]));
+          logEntries = entries;
+          logFiles = Object.values(entries).map(file => file.name);
         },
         function (err) {
-          console.log(err);
+          alert(err);
         }
       );
     }, function (err) {
-      console.log(err);
+      alert(err);
     }
   );
 }
@@ -144,6 +203,7 @@ var app = {
         cordova.plugins.backgroundMode.disableWebViewOptimizations();
       });
 
+
       window.onerror = function (msg, url, lineNo, columnNo, error) {
         var string = msg.toLowerCase();
         var substring = "script error";
@@ -161,6 +221,8 @@ var app = {
         }
         return false;
       };
+
+
 
       window.addEventListener('load', () => {
 
@@ -187,7 +249,43 @@ var app = {
           }
 
         }, 100);
-        // setButtons();
+
+
+        listDir(cordova.file.externalDataDirectory);
+
+        setTimeout(() => {
+          logFiles = logFiles.sort().reverse();
+          logFiles.forEach((file, i) => {
+            readFile(file);
+          });
+
+        }, 300);
+
+        // hammer swipe gestures
+        var pageOne = document.getElementById('page1');
+        var pageTwo = document.getElementById('page2');
+        // create a simple instance
+        // by default, it only adds horizontal recognizers
+        var mPageOne = new Hammer(pageOne);
+        var mPageTwo =  new Hammer(pageTwo);
+
+        mPageOne.on("swipeleft", () => {
+          document.getElementById('page2').style.display = 'flex';
+          document.getElementById('page1').style.display = 'none';
+        });
+        mPageOne.on("swiperight", () => {
+          document.getElementById('page2').style.display = 'flex';
+          document.getElementById('page1').style.display = 'none';
+        });
+        mPageTwo.on("swipeleft", () => {
+          document.getElementById('page2').style.display = 'none';
+          document.getElementById('page1').style.display = 'flex';
+        });
+        mPageTwo.on("swiperight", () => {
+          document.getElementById('page2').style.display = 'none';
+          document.getElementById('page1').style.display = 'flex';
+        });
+
       });
 
       document.addEventListener("backbutton", onBackKeyDown, false);
@@ -204,13 +302,34 @@ var app = {
 
       function onConfirm(buttonIndex) {
           if (buttonIndex === 2) {
-            setTimeout(write('    </trkseg>\n' + '  </trk>\n' + '</gpx>'), 100);
+            if (startPressed) {
+              setTimeout(
+                write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
+                  '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
+                  '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+                  '</metadata>\n'
+              ), 500);
+            }
             setTimeout(navigator.app.exitApp(), 1000);
           }
       }
 
       document.getElementById('stopButton').addEventListener('click', function () {
-        setTimeout(write('    </trkseg>\n' + '  </trk>\n' + '</gpx>'), 100);
+        setTimeout(
+          write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
+            '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
+            '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+            '</metadata>\n'
+        ), 500);
+        document.getElementById('historyData').innerHTML = ''
+        listDir(cordova.file.externalDataDirectory);
+        setTimeout(() => {
+          logFiles = logFiles.sort().reverse();
+          logFiles.forEach((file, i) => {
+            readFile(file);
+          });
+
+        }, 300);
         initialised = false;
         startPressed = false;
         clearInterval(timeDisplay);
@@ -285,7 +404,7 @@ var app = {
 
             const time = new Date ();
             setTime(time);
-            const currentMilliseconds = time.getTime();
+            currentMilliseconds = time.getTime();
             const timeGap = parseInt((currentMilliseconds - startMilliseconds)/1000, 10);
             const lastTick = currentMilliseconds - tickMilliseconds;
             tickMilliseconds = currentMilliseconds;

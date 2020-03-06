@@ -25,10 +25,53 @@ var maxSpeed = 0;
 var startPressed = false;
 var initialised = false;
 var timeDisplay;
-var logFiles=[
-  'nie ma plików',
-  'error'
-];
+var logFiles=['no log files found'];
+var logEntries = {};
+
+
+const errorCallback = error => {
+  alert("ERROR: ", error.code);
+};
+
+function readFile(name) {
+  window.resolveLocalFileSystemURL(cordova.file.externalDataDirectory, function(dir) {
+    dir.getFile(name, {}, function(fileEntry) {
+      fileEntry.file(function(file) {
+        var reader = new FileReader();
+        reader.onloadend = function() {
+          displayFileData(name, this.result);
+        };
+        reader.readAsText(file);
+      }, errorCallback);
+    });
+  });
+};
+
+function displayFileData(name, data) {
+  const date = data.split('<time>')[1]
+    ? data.split('<time>')[1].split('</time>')[0]
+    : false;
+  if (!date) return -1;
+  const distance = data.split('<distance>')[1]
+    ? data.split('<distance>')[1].split('</distance>')[0].split(',')
+    : false;
+  if (!distance) return -1;
+  const time = data.split('<totalTime>')[1]
+    ? data.split('<totalTime>')[1].split('</totalTime>')[0]
+    : false;
+  if (!time) return -1;
+  const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
+  let newRow = tableRef.insertRow();
+  let newCell = newRow.insertCell(0);
+  let newText  = document.createTextNode(new Date(date).toDateString());
+  newCell.appendChild(newText);
+  newCell = newRow.insertCell(1);
+  newText = document.createTextNode(distance + 'km');
+  newCell.appendChild(newText);
+  newCell = newRow.insertCell(2);
+  newText = document.createTextNode(time);
+  newCell.appendChild(newText);
+};
 
 const msToTime = s => {
   var ms = s % 1000;
@@ -47,6 +90,7 @@ const listDir = path => {
       var reader = fileSystem.createReader();
       reader.readEntries(
         function (entries) {
+          logEntries = entries;
           logFiles = Object.values(entries).map(file => file.name);
         },
         function (err) {
@@ -210,10 +254,12 @@ var app = {
         listDir(cordova.file.externalDataDirectory);
 
         setTimeout(() => {
+          logFiles = logFiles.sort().reverse();
           logFiles.forEach((file, i) => {
-            document.getElementById('page2').innerHTML += `<div class="fileName">${i + 1}: ${file}</div>`;
+            readFile(file);
           });
-        }, 100);
+
+        }, 300);
 
         // hammer swipe gestures
         var pageOne = document.getElementById('page1');
@@ -257,7 +303,12 @@ var app = {
       function onConfirm(buttonIndex) {
           if (buttonIndex === 2) {
             if (startPressed) {
-              setTimeout(write('    </trkseg>\n' + '  </trk>\n' + '</gpx>'), 100);
+              setTimeout(
+                write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
+                  '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
+                  '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+                  '</metadata>\n'
+              ), 500);
             }
             setTimeout(navigator.app.exitApp(), 1000);
           }
@@ -267,9 +318,18 @@ var app = {
         setTimeout(
           write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
             '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
-            '  <time>' + msToTime(currentMilliseconds - startMilliseconds) + '</time>\n' +
+            '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
             '</metadata>\n'
-        ), 100);
+        ), 500);
+        document.getElementById('historyData').innerHTML = ''
+        listDir(cordova.file.externalDataDirectory);
+        setTimeout(() => {
+          logFiles = logFiles.sort().reverse();
+          logFiles.forEach((file, i) => {
+            readFile(file);
+          });
+
+        }, 300);
         initialised = false;
         startPressed = false;
         clearInterval(timeDisplay);

@@ -5,12 +5,12 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="css/font-awesome.min.css">
     <link rel="stylesheet" type="text/css" href="css/style.css">
-    <title>GPS Logger</title>
+    <title>Runner</title>
   </head>
     <body>
       <div id='app'>
         <header>
-          GPS Logger
+          Runner
         </header>
         <div id='page1'>
           <div id='mapa'>Google maps not available</div>
@@ -34,10 +34,13 @@
           </div>
         </div>
         <div id='page2'>
-          <h2 class="history">History</h2>
+          <div id='tableWrapper'>
+            <table id='history'>
+              <tbody id='historyData'>
+              </tbody>
+            </table>
         </div>
-        <footer>(c) mkrok, 2020</footer>
-      </div>
+        </div>
       <script type="text/javascript" src="cordova.js"></script>
       <script type="text/javascript" src="js/hammer.min.js"></script>
       <script type="text/javascript" src="js/index.js"></script>

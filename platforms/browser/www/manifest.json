@@ -1,9 +1,9 @@
 {
   "background_color": "#FFF",
   "display": "standalone",
-  "name": "GPS Logger",
-  "short_name": "GPS Logger",
-  "version": "com.mkrok.gps-logger",
+  "name": "Runner",
+  "short_name": "Runner",
+  "version": "com.mkrok.runner",
   "description": "yet another application for running and other activities",
   "author": "mkrok",
   "icons": [
