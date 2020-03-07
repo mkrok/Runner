@@ -64,10 +64,12 @@ function displayFileData(name, data) {
     ? data.split('<distance>')[1].split('</distance>')[0].split(',')
     : false;
   if (!distance) return -1;
+  totalDistance += Number(distance);
   const time = data.split('<totalTime>')[1]
     ? data.split('<totalTime>')[1].split('</totalTime>')[0]
     : false;
   if (!time) return -1;
+  totalTime += Number(time);
   const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
   let newRow = tableRef.insertRow();
   let newCell = newRow.insertCell(0);
@@ -78,8 +80,15 @@ function displayFileData(name, data) {
   newText = document.createTextNode(distance + 'km');
   newCell.appendChild(newText);
   newCell = newRow.insertCell(2);
-  newText = document.createTextNode(time);
+  newText = document.createTextNode(msToTime(time));
   newCell.appendChild(newText);
+  document.getElementById('totals').innerHTML =
+    '<dl>' +
+      '<dd>Total distance</dd>' +
+      `<dt>${totalDistance.toFixed(3)}km</dt>` +
+      '<dd>Total time</dd>' +
+      `<dt>${msToTime(totalTime)}</dt>` +
+    '</dl>'
 };
 
 const msToTime = s => {
@@ -126,7 +135,7 @@ const say = text => {
 };
 
 const GPX_HEADER = '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n' +
-  '<gpx version=\"1.1\" creator=\"GPS Logger, (c) mkrok\" ' +
+  '<gpx version=\"1.1\" creator=\"Runner, (c) mkrok\" ' +
   'xsi:schemaLocation=\"http://www.topopgrafix.com/GPX/1/1 ' +
   'http://www.topografix.com/GPX/1/1/gpx.datStringxsd ' +
   'http://www.garmin.com/xmlschemas/GpxExtensions/v3 ' +
@@ -261,13 +270,11 @@ var app = {
 
 
         listDir(cordova.file.externalDataDirectory);
-
         setTimeout(() => {
           logFiles = logFiles.sort().reverse();
           logFiles.forEach((file, i) => {
             readFile(file);
           });
-
         }, 300);
 
         // hammer swipe gestures
@@ -315,7 +322,7 @@ var app = {
               setTimeout(
                 write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
                   '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
-                  '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+                  '  <totalTime>' + (currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
                   '</metadata>\n'
               ), 500);
             }
@@ -327,11 +334,13 @@ var app = {
         setTimeout(
           write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
             '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
-            '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+            '  <totalTime>' + (currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
             '</metadata>\n'
         ), 500);
         document.getElementById('historyData').innerHTML = ''
         listDir(cordova.file.externalDataDirectory);
+        totalDistance = 0;
+        totalTime = 0;
         setTimeout(() => {
           logFiles = logFiles.sort().reverse();
           logFiles.forEach((file, i) => {

@@ -1,3 +1,9 @@
 # node modules
 node_modules
 
+# bundled javascript
+www/js/runer.js
+
+hooks
+platforms
+plugins

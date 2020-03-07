@@ -27,6 +27,8 @@ var initialised = false;
 var timeDisplay;
 var logFiles=['no log files found'];
 var logEntries = {};
+var totalDistance = 0;
+var totalTime = 0;
 
 function initMap() {
     // Create an array of styles.
