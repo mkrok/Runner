@@ -204,8 +204,6 @@ var app = {
         return false;
       };
 
-
-
       window.addEventListener('load', () => {
 
         const setButtons = setInterval(() => {
@@ -290,7 +288,7 @@ var app = {
                   '</metadata>\n'
               ), 500);
             }
-            setTimeout(navigator.app.exitApp(), 1000);
+            setTimeout(navigator.app.exitApp(), 2000);
           }
       }
 
@@ -434,7 +432,5 @@ var app = {
       );
     }
 };
-
-
 
 app.initialize();
