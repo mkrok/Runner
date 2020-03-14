@@ -1,43 +1,101 @@
-(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-/**
- * Parse date
- *
- * @param  {Date|Number} date
- * @param  {String} format="DD-MM-YYYY"
- * @returns {String} Returns the string in correct format.
- *
- */
+var zum = 3;
+var map;
+var cordovaPos = {lat: 50.061667, lng: 19.937222};
+var CENTER_MAP = true;
+var SOUND = true;
+var myTrackCoordinates;
+var myTrack;
+var myMarker;
+var year, month, day, hours, minutes, seconds;
+var startMilliseconds, previousMilliseconds, tickMilliseconds, currentMilliseconds;
+var start;
+var distance = 0;
+var distanceFlatEarth = 0;
+var lat = '';
+var lon = '';
+var lapTime = 0;
+var lap = 0;
+const lapDistance = 1000;
+var pace = 0;
+var logFileName = 'dupa.gpx';
+var fileHandler;
+var writer;
+const activity = 'Running';
+var maxSpeed = 0;
+var startPressed = false;
+var initialised = false;
+var timeDisplay;
+var logFiles=['no log files found'];
+var logEntries = {};
+var totalDistance = 0;
+var totalTime = 0;
 
-const parseNumber = dateNumber =>
-    dateNumber.toString().length === 1 ? `0${dateNumber}` : `${dateNumber}`;
+function initMap() {
+    // Create an array of styles.
+    var styles = [
+        {
+            stylers: [
+                { hue: '#B3E9FF' },
+                { saturation: -80 },
+                { gamma: 0.30 }
+            ]
+        },
+        {
+            featureType: 'road',
+            elementType: 'geometry',
+            stylers: [
+                { lightness: 100 },
+                { visibility: 'simplified' }
+            ]
+        },
+        {
+            featureType: 'road',
+            elementType: 'labels',
+            stylers: [
+                { visibility: 'on' }
+            ]
+        }
+    ],
+    // Create a new StyledMapType object, passing it the array of styles,
+    // as well as the name to be displayed on the map type control.
+    styledMap = new google.maps.StyledMapType(styles, {name: 'Styled Map'});
 
-function format(date, format = 'DD-MM-YYYY') {
-    if (!(date instanceof Date) || isNaN(date)) {
-        return false;
-    }
-    // dodac formatowanie dla milisekund, np 86400000 = 1day
-    let tempDate = format.toString();
-    tempDate = tempDate.replace('DD', `${parseNumber(date.getDate())}`);
-    tempDate = tempDate.replace('MM', `${parseNumber(date.getMonth() + 1)}`);
-    tempDate = tempDate.replace('YYYY', `${date.getFullYear()}`);
-    tempDate = tempDate.replace(
-        'YY',
-        `${date
-            .getFullYear()
-            .toString()
-            .slice(2, 4)}`
-    );
-    tempDate = tempDate.replace('hh', `${parseNumber(date.getHours())}`);
-    tempDate = tempDate.replace('mm', `${parseNumber(date.getMinutes())}`);
-    tempDate = tempDate.replace('ss', `${parseNumber(date.getSeconds())}`);
+    map = new google.maps.Map(document.getElementById('mapa'), {
+        center: cordovaPos,
+        zoom: zum,
+        streetViewControl: false,
+        zoomControl: false,
+        mapTypeControl: false,
+        gestureHandling: 'cooperative',
+        mapTypeControlOptions: {
+            mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
+        },
+        disableDefaultUI: true
+    });
 
-    return tempDate === format.toString() ? false : tempDate;
+    //Associate the styled map with the MapTypeId and set it to display.
+    map.mapTypes.set('map_style', styledMap);
+    map.setMapTypeId('map_style');
+
+    // add some controls to the map
+    var controlsDiv = document.createElement('div');
+    controlsDiv.innerHTML = '<button id="geo"><i class="fa fa-2x fa-crosshairs"></i></button><button id="sound"><i class="fa fa-2x fa-volume-up"></i></button>';
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(controlsDiv);
+
+    myTrack = new google.maps.Polyline({
+      strokeColor: 'red',
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+    myTrackCoordinates = myTrack.getPath();
+    myTrack.setMap(map);
+
+    myMarker = new google.maps.Marker({
+        position: cordovaPos,
+        map: map
+    });
+    myMarker.setMap(map);
 }
-
-module.exports = format;
-
-},{}],2:[function(require,module,exports){
-const formatDate = require('rdate/format');
 
 const errorCallback = error => {
   alert("ERROR: ", error.code);
@@ -77,7 +135,7 @@ function displayFileData(name, data) {
   let newRow = tableRef.insertRow();
   let newCell = newRow.insertCell(0);
   //let newText  = document.createTextNode(new Date(date).toDateString());
-  let newText  = document.createTextNode(formatDate(new Date(date), 'YYYY-MM-DD') + ', ' + timer[0] + ':' + timer[1]);
+  let newText  = document.createTextNode(( new Date(date).toDateString() ));
   newCell.appendChild(newText);
   newCell = newRow.insertCell(1);
   newText = document.createTextNode(distance + 'km');
@@ -243,8 +301,6 @@ var app = {
         return false;
       };
 
-
-
       window.addEventListener('load', () => {
 
         const setButtons = setInterval(() => {
@@ -329,7 +385,7 @@ var app = {
                   '</metadata>\n'
               ), 500);
             }
-            setTimeout(navigator.app.exitApp(), 1000);
+            setTimeout(navigator.app.exitApp(), 2000);
           }
       }
 
@@ -474,8 +530,4 @@ var app = {
     }
 };
 
-
-
 app.initialize();
-
-},{"rdate/format":1}]},{},[2]);
