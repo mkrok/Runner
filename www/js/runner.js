@@ -30,6 +30,7 @@ var logEntries = {};
 var totalDistance = 0;
 var totalTime = 0;
 var watchID;
+var historyData = [];
 
 function initMap() {
     // Create an array of styles.
@@ -133,7 +134,7 @@ function displayFileData(name, data) {
   if (!time) return -1;
   totalTime += Number(time);
   const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
-  let newRow = tableRef.insertRow();
+  let newRow = tableRef.insertRow(0);
   let newCell = newRow.insertCell(0);
   //let newText  = document.createTextNode(new Date(date).toDateString());
   let newText  = document.createTextNode(( new Date(date).toDateString() ));
@@ -151,6 +152,34 @@ function displayFileData(name, data) {
       '<dd>Total time</dd>' +
       `<dt>${msToTime(totalTime)}</dt>` +
     '</dl>';
+};
+
+const getHistoryData = (name, data) => {
+  const date = data.split('<time>')[1]
+    ? data.split('<time>')[1].split('</time>')[0]
+    : false;
+  if (!date) return -1;
+  const timer = date.split('T')[1].split(':');
+  const distance = data.split('<distance>')[1]
+    ? data.split('<distance>')[1].split('</distance>')[0].split(',')
+    : false;
+  if (!distance) return -1;
+  totalDistance += Number(distance);
+  const time = data.split('<totalTime>')[1]
+    ? data.split('<totalTime>')[1].split('</totalTime>')[0]
+    : false;
+  if (!time) return -1;
+  totalTime += Number(time);
+  historyData.push({
+      date: date,
+      distance: distance,
+      time: time,
+  });
+  return {
+      date: date,
+      distance: distance,
+      time: time,
+  };
 };
 
 const msToTime = s => {
