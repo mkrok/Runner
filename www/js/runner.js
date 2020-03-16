@@ -133,7 +133,7 @@ function displayFileData(name, data) {
   if (!time) return -1;
   totalTime += Number(time);
   const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
-  let newRow = tableRef.insertRow();
+  let newRow = tableRef.insertRow(0);
   let newCell = newRow.insertCell(0);
   //let newText  = document.createTextNode(new Date(date).toDateString());
   let newText  = document.createTextNode(( new Date(date).toDateString() ));
