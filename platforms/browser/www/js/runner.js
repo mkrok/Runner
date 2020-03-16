@@ -1,4 +1,102 @@
-(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+var zum = 3;
+var map;
+var cordovaPos = {lat: 50.061667, lng: 19.937222};
+var CENTER_MAP = true;
+var SOUND = true;
+var myTrackCoordinates;
+var myTrack;
+var myMarker;
+var year, month, day, hours, minutes, seconds;
+var startMilliseconds, previousMilliseconds, tickMilliseconds, currentMilliseconds;
+var start;
+var distance = 0;
+var distanceFlatEarth = 0;
+var lat = '';
+var lon = '';
+var lapTime = 0;
+var lap = 0;
+const lapDistance = 1000;
+var pace = 0;
+var logFileName = 'dupa.gpx';
+var fileHandler;
+var writer;
+const activity = 'Running';
+var maxSpeed = 0;
+var startPressed = false;
+var initialised = false;
+var timeDisplay;
+var logFiles=['no log files found'];
+var logEntries = {};
+var totalDistance = 0;
+var totalTime = 0;
+
+function initMap() {
+    // Create an array of styles.
+    var styles = [
+        {
+            stylers: [
+                { hue: '#B3E9FF' },
+                { saturation: -80 },
+                { gamma: 0.30 }
+            ]
+        },
+        {
+            featureType: 'road',
+            elementType: 'geometry',
+            stylers: [
+                { lightness: 100 },
+                { visibility: 'simplified' }
+            ]
+        },
+        {
+            featureType: 'road',
+            elementType: 'labels',
+            stylers: [
+                { visibility: 'on' }
+            ]
+        }
+    ],
+    // Create a new StyledMapType object, passing it the array of styles,
+    // as well as the name to be displayed on the map type control.
+    styledMap = new google.maps.StyledMapType(styles, {name: 'Styled Map'});
+
+    map = new google.maps.Map(document.getElementById('mapa'), {
+        center: cordovaPos,
+        zoom: zum,
+        streetViewControl: false,
+        zoomControl: false,
+        mapTypeControl: false,
+        gestureHandling: 'cooperative',
+        mapTypeControlOptions: {
+            mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
+        },
+        disableDefaultUI: true
+    });
+
+    //Associate the styled map with the MapTypeId and set it to display.
+    map.mapTypes.set('map_style', styledMap);
+    map.setMapTypeId('map_style');
+
+    // add some controls to the map
+    var controlsDiv = document.createElement('div');
+    controlsDiv.innerHTML = '<button id="geo"><i class="fa fa-2x fa-crosshairs"></i></button><button id="sound"><i class="fa fa-2x fa-volume-up"></i></button>';
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(controlsDiv);
+
+    myTrack = new google.maps.Polyline({
+      strokeColor: 'red',
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+    myTrackCoordinates = myTrack.getPath();
+    myTrack.setMap(map);
+
+    myMarker = new google.maps.Marker({
+        position: cordovaPos,
+        map: map
+    });
+    myMarker.setMap(map);
+}
+
 const errorCallback = error => {
   alert("ERROR: ", error.code);
 };
@@ -22,25 +120,36 @@ function displayFileData(name, data) {
     ? data.split('<time>')[1].split('</time>')[0]
     : false;
   if (!date) return -1;
+  const timer = date.split('T')[1].split(':');
   const distance = data.split('<distance>')[1]
     ? data.split('<distance>')[1].split('</distance>')[0].split(',')
     : false;
   if (!distance) return -1;
+  totalDistance += Number(distance);
   const time = data.split('<totalTime>')[1]
     ? data.split('<totalTime>')[1].split('</totalTime>')[0]
     : false;
   if (!time) return -1;
+  totalTime += Number(time);
   const tableRef = document.getElementById('history').getElementsByTagName('tbody')[0];
   let newRow = tableRef.insertRow();
   let newCell = newRow.insertCell(0);
-  let newText  = document.createTextNode(new Date(date).toDateString());
+  //let newText  = document.createTextNode(new Date(date).toDateString());
+  let newText  = document.createTextNode(( new Date(date).toDateString() ));
   newCell.appendChild(newText);
   newCell = newRow.insertCell(1);
   newText = document.createTextNode(distance + 'km');
   newCell.appendChild(newText);
   newCell = newRow.insertCell(2);
-  newText = document.createTextNode(time);
+  newText = document.createTextNode(msToTime(time));
   newCell.appendChild(newText);
+  document.getElementById('totals').innerHTML =
+    '<dl>' +
+      '<dd>Total distance</dd>' +
+      `<dt>${totalDistance.toFixed(3)}km</dt>` +
+      '<dd>Total time</dd>' +
+      `<dt>${msToTime(totalTime)}</dt>` +
+    '</dl>'
 };
 
 const msToTime = s => {
@@ -87,7 +196,7 @@ const say = text => {
 };
 
 const GPX_HEADER = '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n' +
-  '<gpx version=\"1.1\" creator=\"GPS Logger, (c) mkrok\" ' +
+  '<gpx version=\"1.1\" creator=\"Runner, (c) mkrok\" ' +
   'xsi:schemaLocation=\"http://www.topopgrafix.com/GPX/1/1 ' +
   'http://www.topografix.com/GPX/1/1/gpx.datStringxsd ' +
   'http://www.garmin.com/xmlschemas/GpxExtensions/v3 ' +
@@ -192,8 +301,6 @@ var app = {
         return false;
       };
 
-
-
       window.addEventListener('load', () => {
 
         const setButtons = setInterval(() => {
@@ -222,13 +329,11 @@ var app = {
 
 
         listDir(cordova.file.externalDataDirectory);
-
         setTimeout(() => {
           logFiles = logFiles.sort().reverse();
           logFiles.forEach((file, i) => {
             readFile(file);
           });
-
         }, 300);
 
         // hammer swipe gestures
@@ -276,23 +381,39 @@ var app = {
               setTimeout(
                 write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
                   '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
-                  '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+                  '  <totalTime>' + (currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
                   '</metadata>\n'
               ), 500);
             }
-            setTimeout(navigator.app.exitApp(), 1000);
+            setTimeout(navigator.app.exitApp(), 2000);
           }
       }
+
+      document.getElementById('poll').addEventListener('click', function() {
+        document.getElementById('poll').style.visibility = 'hidden';
+        document.getElementById('run').style.visibility = 'visible';
+        document.getElementById('page2').style.display = 'flex';
+        document.getElementById('page1').style.display = 'none';
+      });
+      
+      document.getElementById('run').addEventListener('click', function() {
+        document.getElementById('run').style.visibility = 'hidden';
+        document.getElementById('poll').style.visibility = 'visible';
+        document.getElementById('page1').style.display = 'flex';
+        document.getElementById('page2').style.display = 'none';
+      });
 
       document.getElementById('stopButton').addEventListener('click', function () {
         setTimeout(
           write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
             '<metadata>\n  <distance>' + (distance/1000).toFixed(3) + '</distance>\n' +
-            '  <totalTime>' + msToTime(currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
+            '  <totalTime>' + (currentMilliseconds - startMilliseconds) + '</totalTime>\n' +
             '</metadata>\n'
         ), 500);
         document.getElementById('historyData').innerHTML = ''
         listDir(cordova.file.externalDataDirectory);
+        totalDistance = 0;
+        totalTime = 0;
         setTimeout(() => {
           logFiles = logFiles.sort().reverse();
           logFiles.forEach((file, i) => {
@@ -423,8 +544,4 @@ var app = {
     }
 };
 
-
-
 app.initialize();
-
-},{}]},{},[1]);

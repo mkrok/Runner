@@ -29,6 +29,7 @@ var logFiles=['no log files found'];
 var logEntries = {};
 var totalDistance = 0;
 var totalTime = 0;
+var watchID;
 
 function initMap() {
     // Create an array of styles.
@@ -149,7 +150,7 @@ function displayFileData(name, data) {
       `<dt>${totalDistance.toFixed(3)}km</dt>` +
       '<dd>Total time</dd>' +
       `<dt>${msToTime(totalTime)}</dt>` +
-    '</dl>'
+    '</dl>';
 };
 
 const msToTime = s => {
@@ -331,7 +332,7 @@ var app = {
         listDir(cordova.file.externalDataDirectory);
         setTimeout(() => {
           logFiles = logFiles.sort().reverse();
-          logFiles.forEach((file, i) => {
+          logFiles.forEach(file => {
             readFile(file);
           });
         }, 300);
@@ -347,18 +348,26 @@ var app = {
         mPageOne.on("swipeleft", () => {
           document.getElementById('page2').style.display = 'flex';
           document.getElementById('page1').style.display = 'none';
+          document.getElementById('poll').style.visibility = 'hidden';
+          document.getElementById('run').style.visibility = 'visible';
         });
         mPageOne.on("swiperight", () => {
           document.getElementById('page2').style.display = 'flex';
           document.getElementById('page1').style.display = 'none';
+          document.getElementById('poll').style.visibility = 'hidden';
+          document.getElementById('run').style.visibility = 'visible';
         });
         mPageTwo.on("swipeleft", () => {
           document.getElementById('page2').style.display = 'none';
           document.getElementById('page1').style.display = 'flex';
+          document.getElementById('run').style.visibility = 'hidden';
+          document.getElementById('poll').style.visibility = 'visible';
         });
         mPageTwo.on("swiperight", () => {
           document.getElementById('page2').style.display = 'none';
           document.getElementById('page1').style.display = 'flex';
+          document.getElementById('run').style.visibility = 'hidden';
+          document.getElementById('poll').style.visibility = 'visible';
         });
 
       });
@@ -377,6 +386,7 @@ var app = {
 
       function onConfirm(buttonIndex) {
           if (buttonIndex === 2) {
+            navigator.geolocation.clearWatch(watchID);
             if (startPressed) {
               setTimeout(
                 write('    </trkseg>\n' + '  </trk>\n' + '</gpx>\n' +
@@ -388,6 +398,20 @@ var app = {
             setTimeout(navigator.app.exitApp(), 2000);
           }
       }
+
+      document.getElementById('poll').addEventListener('click', function() {
+        document.getElementById('poll').style.visibility = 'hidden';
+        document.getElementById('run').style.visibility = 'visible';
+        document.getElementById('page2').style.display = 'flex';
+        document.getElementById('page1').style.display = 'none';
+      });
+
+      document.getElementById('run').addEventListener('click', function() {
+        document.getElementById('run').style.visibility = 'hidden';
+        document.getElementById('poll').style.visibility = 'visible';
+        document.getElementById('page1').style.display = 'flex';
+        document.getElementById('page2').style.display = 'none';
+      });
 
       document.getElementById('stopButton').addEventListener('click', function () {
         setTimeout(
@@ -422,7 +446,7 @@ var app = {
         document.getElementById('stopButton').style.display = 'none';
       });
 
-      var watchID = navigator.geolocation.watchPosition(
+      watchID = navigator.geolocation.watchPosition(
           function (position) {
 
             // map refresh

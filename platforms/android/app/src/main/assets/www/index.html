@@ -3,20 +3,22 @@
   <head>
     <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="css/font-awesome.min.css">
     <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script defer src="js/all.min.js"></script>
     <title>Runner</title>
   </head>
     <body>
       <div id='app'>
         <header>
-          Runner
+          <button id='run'><i class="fas fa-angle-double-left fa-2x"></i></button>
+          <p id='runner'>Runner</p>
+          <button id='poll'><i class="fas fa-angle-double-right fa-2x"></i></button>
         </header>
         <div id='page1'>
-          <div id='mapa'>Google maps not available</div>
+          <div id='mapa'>Maps not available</div>
           <div id="startButtonDiv">
-            <button id="startButton"><i class="fa fa-play fa-3x"></i></button>
-            <button id="stopButton"><i class="fa fa-close fa-3x"></i></button>
+            <button id="startButton"><i class="fas fa-play fa-3x"></i></button>
+            <button id="stopButton"><i class="fas fa-times fa-3x"></i></button>
           </div>
           <div id='data'>
             <div class="wrapper">
