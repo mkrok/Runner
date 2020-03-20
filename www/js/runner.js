@@ -328,7 +328,6 @@ var app = {
 
         }, 100);
 
-
         listDir(cordova.file.externalDataDirectory);
         setTimeout(() => {
           logFiles = logFiles.sort().reverse();
@@ -336,39 +335,6 @@ var app = {
             readFile(file);
           });
         }, 300);
-
-        // hammer swipe gestures
-        var pageOne = document.getElementById('page1');
-        var pageTwo = document.getElementById('page2');
-        // create a simple instance
-        // by default, it only adds horizontal recognizers
-        var mPageOne = new Hammer(pageOne);
-        var mPageTwo =  new Hammer(pageTwo);
-
-        mPageOne.on("swipeleft", () => {
-          document.getElementById('page2').style.display = 'flex';
-          document.getElementById('page1').style.display = 'none';
-          document.getElementById('poll').style.visibility = 'hidden';
-          document.getElementById('run').style.visibility = 'visible';
-        });
-        mPageOne.on("swiperight", () => {
-          document.getElementById('page2').style.display = 'flex';
-          document.getElementById('page1').style.display = 'none';
-          document.getElementById('poll').style.visibility = 'hidden';
-          document.getElementById('run').style.visibility = 'visible';
-        });
-        mPageTwo.on("swipeleft", () => {
-          document.getElementById('page2').style.display = 'none';
-          document.getElementById('page1').style.display = 'flex';
-          document.getElementById('run').style.visibility = 'hidden';
-          document.getElementById('poll').style.visibility = 'visible';
-        });
-        mPageTwo.on("swiperight", () => {
-          document.getElementById('page2').style.display = 'none';
-          document.getElementById('page1').style.display = 'flex';
-          document.getElementById('run').style.visibility = 'hidden';
-          document.getElementById('poll').style.visibility = 'visible';
-        });
 
       });
 
