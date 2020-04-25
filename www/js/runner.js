@@ -146,12 +146,14 @@ function displayFileData(name, data) {
   newText = document.createTextNode(msToTime(time));
   newCell.appendChild(newText);
   document.getElementById('totals').innerHTML =
+    '<div' +
     '<dl>' +
-      '<dd>Total distance</dd>' +
-      `<dt>${totalDistance.toFixed(3)}km</dt>` +
-      '<dd>Total time</dd>' +
-      `<dt>${msToTime(totalTime)}</dt>` +
-    '</dl>';
+      '<dd>Total distance:</dd>' +
+      `<dt>${totalDistance.toFixed(0)} km</dt>` +
+      '<dd>Total time:</dd>' +
+      `<dt>${msToTime(totalTime).substring(0,5)}</dt>` +
+    '</dl>' +
+    '</div';
 };
 
 const getHistoryData = (name, data) => {
