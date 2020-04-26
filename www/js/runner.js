@@ -151,44 +151,6 @@ const setHammer = () => {
   });
 };
 
-const onConfirm = (buttonIndex) => {
-  if (buttonIndex === 2) {
-    navigator.geolocation.clearWatch(watchID);
-    if (startPressed) {
-      setTimeout(
-        write(
-          "    </trkseg>\n" +
-            "  </trk>\n" +
-            "</gpx>\n" +
-            "<metadata>\n  <distance>" +
-            (distance / 1000).toFixed(3) +
-            "</distance>\n" +
-            "  <totalTime>" +
-            (currentMilliseconds - startMilliseconds) +
-            "</totalTime>\n" +
-            "</metadata>\n"
-        ),
-        500
-      );
-    }
-    setTimeout(navigator.app.exitApp(), 2000);
-  }
-};
-
-const onBackKeyDown = () => {
-  // Handle the back buttons
-  navigator.notification.confirm(
-    "Terminate app?", // message
-    onConfirm, // callback to invoke with index of button pressed
-    "Exit", // title
-    ["Cancel", "Yes"] // buttonLabels
-  );
-};
-
-const setBackButton = () => {
-  document.addEventListener("backbutton", onBackKeyDown, false);
-};
-
 const setPages = () => {
   document.getElementById("poll").addEventListener("click", function () {
     document.getElementById("poll").style.visibility = "hidden";
@@ -239,6 +201,49 @@ const setStopButton = () => {
     document.getElementById("startButton").style.color = "grey";
     document.getElementById("stopButton").style.display = "none";
   });
+};
+
+const onConfirm = (buttonIndex) => {
+  if (buttonIndex === 2) {
+    navigator.geolocation.clearWatch(watchID);
+    if (startPressed) {
+      setTimeout(
+        write(
+          "    </trkseg>\n" +
+            "  </trk>\n" +
+            "</gpx>\n" +
+            "<metadata>\n  <distance>" +
+            (distance / 1000).toFixed(3) +
+            "</distance>\n" +
+            "  <totalTime>" +
+            (currentMilliseconds - startMilliseconds) +
+            "</totalTime>\n" +
+            "</metadata>\n"
+        ),
+        500
+      );
+    }
+    setTimeout(navigator.app.exitApp(), 2000);
+  } else {
+    setMapButtons();
+    setHammer();
+    setPages();
+    setStopButton();
+  }
+};
+
+const onBackKeyDown = () => {
+  // Handle the back buttons
+  navigator.notification.confirm(
+    "Terminate app?", // message
+    onConfirm, // callback to invoke with index of button pressed
+    "Exit", // title
+    ["Cancel", "Yes"] // buttonLabels
+  );
+};
+
+const setBackButton = () => {
+  document.addEventListener("backbutton", onBackKeyDown, false);
 };
 
 const errorCallback = (error) => {
