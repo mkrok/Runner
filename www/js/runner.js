@@ -377,7 +377,7 @@ const msToTime = (s) => {
   return hrs + ":" + mins + ":" + secs + "." + ms;
 };
 
-function listDir(path, reader) {
+function listDir(path, fileReader) {
   let files = [];
   window.resolveLocalFileSystemURL(
     path,
@@ -389,9 +389,9 @@ function listDir(path, reader) {
           logFiles = Object.values(entries).map((file) => file.name);
           files = logFiles;
           historyData = [];
-          if (reader) {
+          if (fileReader) {
             files.map((file) => {
-              reader(file, getTrainingData);
+              fileReader(file, getTrainingData);
             });
           }
         },
