@@ -254,7 +254,7 @@ const sortDate = (a, b) => new Date(a.date) - new Date(b.date);
 const sortDistance = (a, b) => Number(a.distance) - Number(b.distance);
 const sortTime = (a, b) => Number(a.time) - Number(b.time);
 
-function readFile(name, cb) {
+function readFile(name, getData) {
   window.resolveLocalFileSystemURL(
     cordova.file.externalDataDirectory,
     function (dir) {
@@ -262,8 +262,8 @@ function readFile(name, cb) {
         fileEntry.file(function (file) {
           const reader = new FileReader();
           reader.onloadend = function () {
-            if (cb) {
-              cb(name, this.result);
+            if (getData) {
+              getData(name, this.result);
             }
           };
           reader.readAsText(file);
@@ -340,7 +340,7 @@ const displayHistory = (historyData) => {
   setTimeout(addRowHandlers(), 1000);
 };
 
-const getHistoryData = (name, data) => {
+const getTrainingData = (name, data) => {
   const date = data.split("<time>")[1]
     ? data.split("<time>")[1].split("</time>")[0]
     : false;
@@ -377,7 +377,7 @@ const msToTime = (s) => {
   return hrs + ":" + mins + ":" + secs + "." + ms;
 };
 
-function listDir(path, cb) {
+function listDir(path, reader) {
   let files = [];
   window.resolveLocalFileSystemURL(
     path,
@@ -389,9 +389,9 @@ function listDir(path, cb) {
           logFiles = Object.values(entries).map((file) => file.name);
           files = logFiles;
           historyData = [];
-          if (cb) {
+          if (reader) {
             files.map((file) => {
-              cb(file, getHistoryData);
+              reader(file, getTrainingData);
             });
           }
         },
