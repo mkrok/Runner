@@ -30,7 +30,7 @@ var initialised = false;
 var timeDisplay;
 var logFiles = [];
 var logEntries = {};
-var watchID;
+var watchID = null;
 var historyData = [];
 
 function initMap() {
@@ -54,7 +54,7 @@ function initMap() {
     // as well as the name to be displayed on the map type control.
     styledMap = new google.maps.StyledMapType(styles, { name: "Styled Map" });
 
-  map = new google.maps.Map(document.getElementById("mapa"), {
+  map = new google.maps.Map(document.getElementById("map"), {
     center: cordovaPos,
     zoom: zum,
     streetViewControl: false,
@@ -344,16 +344,25 @@ const getTrainingData = (name, data) => {
   const date = data.split("<time>")[1]
     ? data.split("<time>")[1].split("</time>")[0]
     : false;
-  if (!date) return -1;
+  if (!date) {
+    logFiles = logFiles.filter((logFile) => logFile !== name);
+    return -1;
+  }
   const timer = date.split("T")[1].split(":");
   const distance = data.split("<distance>")[1]
     ? data.split("<distance>")[1].split("</distance>")[0].split(",")
     : false;
-  if (!distance) return -1;
+  if (!distance) {
+    logFiles = logFiles.filter((logFile) => logFile !== name);
+    return -1;
+  }
   const time = data.split("<totalTime>")[1]
     ? data.split("<totalTime>")[1].split("</totalTime>")[0]
     : false;
-  if (!time) return -1;
+  if (!time) {
+    logFiles = logFiles.filter((logFile) => logFile !== name);
+    return -1;
+  }
   historyData.push({
     date: date,
     distance: distance,
@@ -509,6 +518,174 @@ const setTime = (time) => {
       : time.getSeconds().toString();
 };
 
+const GPS_options = {
+  maximumAge: 10000,
+  timeout: 20000,
+  enableHighAccuracy: true,
+};
+
+function GPS_found(position) {
+  document.getElementById("No_GPS").style.display = "none";
+  if (startPressed) {
+    document.getElementById("stopButton").style.display = "inline-block";
+  } else {
+    document.getElementById("startButton").style.display = "inline-block";
+  }
+  // map refresh
+  cordovaPos = {
+    lat: position.coords.latitude,
+    lng: position.coords.longitude,
+  };
+  const newLatLng = new google.maps.LatLng(
+    position.coords.latitude,
+    position.coords.longitude
+  );
+  myTrackCoordinates.push(newLatLng);
+  myMarker.setPosition(newLatLng);
+  if (CENTER_MAP) {
+    map.setCenter(cordovaPos);
+  }
+  if (map.getZoom() === 3) {
+    map.setZoom(13);
+  }
+
+  if (!startPressed) {
+    document.getElementById("startButton").style.color = "red";
+    document.getElementById("startButton").addEventListener("click", () => {
+      document.getElementById("startButton").style.display = "none";
+      document.getElementById("stopButton").style.display = "inline-block";
+      startPressed = true;
+    }); // startButton click
+    return -1; // app not started
+  }
+
+  if (!initialised) {
+    say("Application started");
+    start = new Date();
+    setTime(start);
+    logFileName = year + month + day + "-" + hours + minutes + seconds + ".gpx";
+    startMilliseconds = start.getTime();
+    previousMilliseconds = startMilliseconds;
+    tickMilliseconds = startMilliseconds;
+    timeDisplay = setInterval(() => {
+      const time = new Date();
+      const currentMilliseconds = time.getTime();
+      const timeGap = parseInt(
+        (currentMilliseconds - startMilliseconds) / 1000,
+        10
+      );
+      const s = Number.isNaN(timeGap % 60) ? 0 : timeGap % 60;
+      const m = Number.isNaN(parseInt((timeGap / 60) % 60))
+        ? 0
+        : parseInt((timeGap / 60) % 60, 10);
+      const h = Number.isNaN(parseInt(timeGap / 3600))
+        ? 0
+        : parseInt(timeGap / 3600, 10);
+      const ss = s < 10 ? "0" + s.toString() : s.toString();
+      const mm = m < 10 ? "0" + m.toString() : m.toString();
+      const hh = h.toString();
+      document.getElementById("time").innerHTML =
+        "Time: " + hh + ":" + mm + ":" + ss;
+    }, 1000);
+
+    window.resolveLocalFileSystemURL(
+      cordova.file.externalDataDirectory,
+      function (dir) {
+        dir.getFile(logFileName, { create: true }, function (file) {
+          fileHandler = file;
+          write(GPX_HEADER);
+        });
+      }
+    );
+
+    initialised = true;
+    return -2;
+  }
+
+  const time = new Date();
+  setTime(time);
+  currentMilliseconds = time.getTime();
+  const timeGap = parseInt(
+    (currentMilliseconds - startMilliseconds) / 1000,
+    10
+  );
+  const lastTick = currentMilliseconds - tickMilliseconds;
+  tickMilliseconds = currentMilliseconds;
+  prevPos = { lat: lat, lng: lon };
+  const dist = 1000 * distanceInKmBetweenEarthCoordinates(cordovaPos, prevPos);
+  lat = position.coords.latitude;
+  lon = position.coords.longitude;
+  distance += dist;
+  lap += dist;
+  if (lap >= lapDistance) {
+    say("attention");
+    lap = 0;
+    lapTime = ((currentMilliseconds - previousMilliseconds) / 60000).toFixed(2);
+    previousMilliseconds = currentMilliseconds;
+    document.getElementById("lap").innerHTML = "Lap time: " + lapTime + " min";
+    document.getElementById("pace").innerHTML =
+      "Pace: " + ((1000 * timeGap) / (60 * distance)).toFixed(2) + " min/km";
+    say(
+      "distance: " +
+        (distance / 1000).toFixed(0) +
+        " km\naverage pace: " +
+        ((1000 * timeGap) / (60 * distance)).toFixed(2) +
+        " min/km\nlast lap: " +
+        parseInt(lapTime, 10) +
+        "minutes" +
+        secs(lapTime) +
+        "seconds"
+    );
+  }
+
+  const msg =
+    '      <trkpt lat="' +
+    position.coords.latitude +
+    '" lon="' +
+    position.coords.longitude +
+    '">\n' +
+    "      <ele>" +
+    position.coords.altitude +
+    "</ele>\n" +
+    "      <spd>" +
+    position.coords.speed +
+    "</spd>\n" +
+    "      <time>" +
+    year +
+    "-" +
+    month +
+    "-" +
+    day +
+    "T" +
+    hours +
+    ":" +
+    minutes +
+    ":" +
+    seconds +
+    "Z</time>\n" +
+    "      </trkpt>\n";
+  write(msg);
+
+  document.getElementById("distance").innerHTML =
+    "Distance: " + (distance / 1000).toFixed(3) + " km";
+}
+
+function GPS_lost(error) {
+  document.getElementById("No_GPS").innerHTML = "No GPS signal";
+  document.getElementById("No_GPS").style.display = "inline-block";
+  document.getElementById("startButton").style.display = "none";
+  document.getElementById("stopButton").style.display = "none";
+  say("No GPS signal");
+  if (watchID) {
+    navigator.geolocation.clearWatch(watchID);
+  }
+  watchID = navigator.geolocation.watchPosition(
+    GPS_found,
+    GPS_lost,
+    GPS_options
+  );
+}
+
 var app = {
   // Application Constructor
   initialize: function () {
@@ -533,6 +710,39 @@ var app = {
     cordova.plugins.backgroundMode.on("activate", function () {
       cordova.plugins.backgroundMode.disableWebViewOptimizations();
     });
+    setInterval(() => {
+      cordova.plugins.diagnostic.isGpsLocationAvailable(
+        function (enabled) {
+          if (!enabled) {
+            say("GPS unavailable");
+            document.getElementById("No_GPS").innerHTML = "GPS unavailable";
+            document.getElementById("No_GPS").style.display = "inline-block";
+            document.getElementById("startButton").style.display = "none";
+            document.getElementById("stopButton").style.display = "none";
+            if (watchID) {
+              navigator.geolocation.clearWatch(watchID);
+            }
+            watchID = navigator.geolocation.watchPosition(
+              GPS_found,
+              GPS_lost,
+              GPS_options
+            );
+          } else {
+            document.getElementById("No_GPS").style.display = "none";
+            if (startPressed) {
+              document.getElementById("stopButton").style.display =
+                "inline-block";
+            } else {
+              document.getElementById("startButton").style.display =
+                "inline-block";
+            }
+          }
+        },
+        function (error) {
+          say("The following error occurred: " + error);
+        }
+      );
+    }, 20000);
 
     window.onerror = function (msg, url, lineNo, columnNo, error) {
       var string = msg.toLowerCase();
@@ -562,169 +772,9 @@ var app = {
     };
 
     watchID = navigator.geolocation.watchPosition(
-      function (position) {
-        // map refresh
-        cordovaPos = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        const newLatLng = new google.maps.LatLng(
-          position.coords.latitude,
-          position.coords.longitude
-        );
-        myTrackCoordinates.push(newLatLng);
-        myMarker.setPosition(newLatLng);
-        if (CENTER_MAP) {
-          map.setCenter(cordovaPos);
-        }
-        if (map.getZoom() === 3) {
-          map.setZoom(14);
-        }
-
-        if (!startPressed) {
-          document.getElementById("startButton").style.color = "red";
-          document
-            .getElementById("startButton")
-            .addEventListener("click", () => {
-              document.getElementById("startButton").style.display = "none";
-              document.getElementById("stopButton").style.display =
-                "inline-block";
-              startPressed = true;
-            }); // startButton click
-          return -1; // app not started
-        }
-
-        if (!initialised) {
-          say("Application started");
-          start = new Date();
-          setTime(start);
-          logFileName =
-            year + month + day + "-" + hours + minutes + seconds + ".gpx";
-          startMilliseconds = start.getTime();
-          previousMilliseconds = startMilliseconds;
-          tickMilliseconds = startMilliseconds;
-          timeDisplay = setInterval(() => {
-            const time = new Date();
-            const currentMilliseconds = time.getTime();
-            const timeGap = parseInt(
-              (currentMilliseconds - startMilliseconds) / 1000,
-              10
-            );
-            const s = Number.isNaN(timeGap % 60) ? 0 : timeGap % 60;
-            const m = Number.isNaN(parseInt((timeGap / 60) % 60))
-              ? 0
-              : parseInt((timeGap / 60) % 60, 10);
-            const h = Number.isNaN(parseInt(timeGap / 3600))
-              ? 0
-              : parseInt(timeGap / 3600, 10);
-            const ss = s < 10 ? "0" + s.toString() : s.toString();
-            const mm = m < 10 ? "0" + m.toString() : m.toString();
-            const hh = h.toString();
-            document.getElementById("time").innerHTML =
-              "Time: " + hh + ":" + mm + ":" + ss;
-          }, 1000);
-
-          window.resolveLocalFileSystemURL(
-            cordova.file.externalDataDirectory,
-            function (dir) {
-              dir.getFile(logFileName, { create: true }, function (file) {
-                fileHandler = file;
-                write(GPX_HEADER);
-              });
-            }
-          );
-
-          initialised = true;
-          return -2;
-        }
-
-        const time = new Date();
-        setTime(time);
-        currentMilliseconds = time.getTime();
-        const timeGap = parseInt(
-          (currentMilliseconds - startMilliseconds) / 1000,
-          10
-        );
-        const lastTick = currentMilliseconds - tickMilliseconds;
-        tickMilliseconds = currentMilliseconds;
-        prevPos = { lat: lat, lng: lon };
-        const dist =
-          1000 * distanceInKmBetweenEarthCoordinates(cordovaPos, prevPos);
-        lat = position.coords.latitude;
-        lon = position.coords.longitude;
-        distance += dist;
-        lap += dist;
-        if (lap >= lapDistance) {
-          say("attention");
-          lap = 0;
-          lapTime = (
-            (currentMilliseconds - previousMilliseconds) /
-            60000
-          ).toFixed(2);
-          previousMilliseconds = currentMilliseconds;
-          document.getElementById("lap").innerHTML =
-            "Lap time: " + lapTime + " min";
-          document.getElementById("pace").innerHTML =
-            "Pace: " +
-            ((1000 * timeGap) / (60 * distance)).toFixed(2) +
-            " min/km";
-          say(
-            "distance: " +
-              (distance / 1000).toFixed(0) +
-              " km\naverage pace: " +
-              ((1000 * timeGap) / (60 * distance)).toFixed(2) +
-              " min/km\nlast lap: " +
-              parseInt(lapTime, 10) +
-              "minutes" +
-              secs(lapTime) +
-              "seconds"
-          );
-        }
-
-        // if (lastTick > 0 && position.coords.accuracy <= 7) {
-        //   const speed = 3600 * dist / lastTick;
-        //   if (speed > maxSpeed) {
-        //     maxSpeed = speed;
-        //     document.getElementById('max').innerHTML = 'Max: ' + speed.toFixed(1) + ' km/h  at ' + parseInt(distance/1000) + ' km';
-        //     say('max speed ' + speed.toFixed(1) + 'km/h');
-        //   }
-        // }
-
-        const msg =
-          '      <trkpt lat="' +
-          position.coords.latitude +
-          '" lon="' +
-          position.coords.longitude +
-          '">\n' +
-          "      <ele>" +
-          position.coords.altitude +
-          "</ele>\n" +
-          "      <spd>" +
-          position.coords.speed +
-          "</spd>\n" +
-          "      <time>" +
-          year +
-          "-" +
-          month +
-          "-" +
-          day +
-          "T" +
-          hours +
-          ":" +
-          minutes +
-          ":" +
-          seconds +
-          "Z</time>\n" +
-          "      </trkpt>\n";
-        write(msg);
-
-        document.getElementById("distance").innerHTML =
-          "Distance: " + (distance / 1000).toFixed(3) + " km";
-      },
-      function (error) {
-        navigator.notification.alert("Waiting for GPS...");
-      },
-      { maximumAge: 15000, timeout: 20000, enableHighAccuracy: true }
+      GPS_found,
+      GPS_lost,
+      GPS_options
     );
   },
 };
