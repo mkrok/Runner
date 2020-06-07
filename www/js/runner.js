@@ -641,12 +641,6 @@ function GPS_found(position) {
     const speed = (3.6 * LAP_SPEED_DISTANCE) / speedLapTime;
     document.getElementById("speed").innerHTML =
       "Speed: " + speed.toFixed(0) + " km/h";
-    document.getElementById("maxspeed").innerHTML =
-      "Max speed: " +
-      maxSpeed.toFixed(0) +
-      " km/h at " +
-      (distance / 1000).toFixed(2) +
-      " km";
 
     if (speed > maxSpeed && timeGap >= START_DELAY) {
       maxSpeed = speed;
@@ -654,7 +648,7 @@ function GPS_found(position) {
         "Max speed: " +
         maxSpeed.toFixed(0) +
         " km/h at: " +
-        (distance / 1000).toFixed(0) +
+        (distance / 1000).toFixed(2) +
         " km";
     }
   }
