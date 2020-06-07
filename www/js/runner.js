@@ -1,3 +1,8 @@
+const LAP_DISTANCE = 1000;
+const LAP_SPEED_DISTANCE = 50;
+const ACTIVITY = "RUNNING";
+const ACCURACY = 20;
+const START_DELAY = 30;
 var zum = 3;
 var map;
 var cordovaPos = { lat: 50.061667, lng: 19.937222 };
@@ -10,7 +15,8 @@ var year, month, day, hours, minutes, seconds;
 var startMilliseconds,
   previousMilliseconds,
   tickMilliseconds,
-  currentMilliseconds;
+  currentMilliseconds,
+  speedLapStartMilliseconds;
 var start;
 var distance = 0;
 var distanceFlatEarth = 0;
@@ -18,12 +24,11 @@ var lat = "";
 var lon = "";
 var lapTime = 0;
 var lap = 0;
-const lapDistance = 1000;
+var speedLap = 0;
 var pace = 0;
 var logFileName = "dupa.gpx";
 var fileHandler;
 var writer;
-const activity = "Running";
 var maxSpeed = 0;
 var startPressed = false;
 var initialised = false;
@@ -192,11 +197,13 @@ const setStopButton = () => {
     clearInterval(timeDisplay);
     distance = 0;
     lapTime = 0;
+    maxSpeed = 0;
     fileHandler = -1;
     document.getElementById("time").innerHTML = "Time: ";
     document.getElementById("distance").innerHTML = "Distance: ";
     document.getElementById("pace").innerHTML = "Pace: ";
     document.getElementById("lap").innerHTML = "Last lap: ";
+    document.getElementById("speed").innerHTML = "Max speed: ";
     document.getElementById("startButton").style.display = "inline-block";
     document.getElementById("startButton").style.color = "grey";
     document.getElementById("stopButton").style.display = "none";
@@ -445,7 +452,7 @@ const GPX_HEADER =
   'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n' +
   "  <trk>\n" +
   "    <type>" +
-  activity.toUpperCase() +
+  ACTIVITY +
   "</type>\n" +
   "    <trkseg>\n";
 
@@ -525,6 +532,11 @@ const GPS_options = {
 };
 
 function GPS_found(position) {
+  document.getElementById("acc").innerHTML =
+    "Accuracy: " + position.coords.accuracy.toFixed(0);
+
+  if (position.coords.accuracy > ACCURACY) return -1;
+
   document.getElementById("No_GPS").style.display = "none";
   if (startPressed) {
     document.getElementById("stopButton").style.display = "inline-block";
@@ -566,6 +578,7 @@ function GPS_found(position) {
     logFileName = year + month + day + "-" + hours + minutes + seconds + ".gpx";
     startMilliseconds = start.getTime();
     previousMilliseconds = startMilliseconds;
+    speedLapStartMilliseconds = startMilliseconds;
     tickMilliseconds = startMilliseconds;
     timeDisplay = setInterval(() => {
       const time = new Date();
@@ -613,11 +626,40 @@ function GPS_found(position) {
   tickMilliseconds = currentMilliseconds;
   prevPos = { lat: lat, lng: lon };
   const dist = 1000 * distanceInKmBetweenEarthCoordinates(cordovaPos, prevPos);
+  const speed = (3600 * dist) / lastTick;
   lat = position.coords.latitude;
   lon = position.coords.longitude;
   distance += dist;
   lap += dist;
-  if (lap >= lapDistance) {
+  speedLap += dist;
+
+  if (speedLap >= LAP_SPEED_DISTANCE) {
+    speedLap = 0;
+    const speedLapTime =
+      (currentMilliseconds - speedLapStartMilliseconds) / 1000;
+    speedLapStartMilliseconds = currentMilliseconds;
+    const speed = (3.6 * LAP_SPEED_DISTANCE) / speedLapTime;
+    document.getElementById("speed").innerHTML =
+      "Speed: " + speed.toFixed(0) + " km/h";
+    document.getElementById("maxspeed").innerHTML =
+      "Max speed: " +
+      maxSpeed.toFixed(0) +
+      " km/h at " +
+      (distance / 1000).toFixed(2) +
+      " km";
+
+    if (speed > maxSpeed && timeGap >= START_DELAY) {
+      maxSpeed = speed;
+      document.getElementById("maxspeed").innerHTML =
+        "Max speed: " +
+        maxSpeed.toFixed(0) +
+        " km/h at: " +
+        (distance / 1000).toFixed(0) +
+        " km";
+    }
+  }
+
+  if (lap >= LAP_DISTANCE) {
     say("attention");
     lap = 0;
     lapTime = ((currentMilliseconds - previousMilliseconds) / 60000).toFixed(2);
