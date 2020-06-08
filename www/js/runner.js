@@ -647,7 +647,7 @@ function GPS_found(position) {
       document.getElementById("maxspeed").innerHTML =
         "Max speed: " +
         maxSpeed.toFixed(0) +
-        " km/h at: " +
+        " km/h at " +
         (distance / 1000).toFixed(2) +
         " km";
     }
