@@ -3,6 +3,15 @@ const LAP_SPEED_DISTANCE = 50;
 const ACTIVITY = "RUNNING";
 const ACCURACY = 20;
 const START_DELAY = 30;
+const MAX_SPEED_POSSIBLE = 36;
+const colors = [
+  "red",
+  "darkblue",
+  "darkgreen",
+  "black",
+  "darkorange",
+  "purple",
+];
 var zum = 3;
 var map;
 var cordovaPos = { lat: 50.061667, lng: 19.937222 };
@@ -33,10 +42,14 @@ var maxSpeed = 0;
 var startPressed = false;
 var initialised = false;
 var timeDisplay;
+var logFileCreation;
+var logFileCreationSuccess = false;
 var logFiles = [];
 var logEntries = {};
 var watchID = null;
 var historyData = [];
+
+const getRandomColor = (max) => Math.floor(max * Math.random());
 
 function initMap() {
   // Create an array of styles.
@@ -81,14 +94,6 @@ function initMap() {
   controlsDiv.innerHTML =
     '<button id="geo"><i class="fa fa-2x fa-crosshairs"></i></button><button id="sound"><i class="fa fa-2x fa-volume-up"></i></button>';
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(controlsDiv);
-
-  myTrack = new google.maps.Polyline({
-    strokeColor: "red",
-    strokeOpacity: 1.0,
-    strokeWeight: 4,
-  });
-  myTrackCoordinates = myTrack.getPath();
-  myTrack.setMap(map);
 
   myMarker = new google.maps.Marker({
     position: cordovaPos,
@@ -199,6 +204,7 @@ const setStopButton = () => {
     lapTime = 0;
     maxSpeed = 0;
     fileHandler = -1;
+    myTrack.setMap(null);
     document.getElementById("time").innerHTML = "Time: ";
     document.getElementById("distance").innerHTML = "Distance: ";
     document.getElementById("pace").innerHTML = "Pace: ";
@@ -552,7 +558,6 @@ function GPS_found(position) {
     position.coords.latitude,
     position.coords.longitude
   );
-  myTrackCoordinates.push(newLatLng);
   myMarker.setPosition(newLatLng);
   if (CENTER_MAP) {
     map.setCenter(cordovaPos);
@@ -572,6 +577,13 @@ function GPS_found(position) {
   }
 
   if (!initialised) {
+    myTrack = new google.maps.Polyline({
+      strokeColor: colors[getRandomColor(colors.length)],
+      strokeOpacity: 1.0,
+      strokeWeight: 4,
+    });
+    myTrackCoordinates = myTrack.getPath();
+    myTrack.setMap(map);
     say("Application started");
     start = new Date();
     setTime(start);
@@ -600,21 +612,30 @@ function GPS_found(position) {
       document.getElementById("time").innerHTML =
         "Time: " + hh + ":" + mm + ":" + ss;
     }, 1000);
-
-    window.resolveLocalFileSystemURL(
-      cordova.file.externalDataDirectory,
-      function (dir) {
-        dir.getFile(logFileName, { create: true }, function (file) {
-          fileHandler = file;
-          write(GPX_HEADER);
-        });
-      }
+    logFileCreation = setInterval(
+      window.resolveLocalFileSystemURL(
+        cordova.file.externalDataDirectory,
+        function (dir) {
+          dir.getFile(logFileName, { create: true }, function (file) {
+            fileHandler = file;
+            if (fileHandler) {
+              logFileCreationSuccess = true;
+              write(GPX_HEADER);
+              clearInterval(logFileCreation);
+            }
+          });
+        }
+      ),
+      1000
     );
 
     initialised = true;
     return -2;
   }
 
+  if (!logFileCreationSuccess) return -3;
+
+  myTrackCoordinates.push(newLatLng);
   const time = new Date();
   setTime(time);
   currentMilliseconds = time.getTime();
@@ -642,7 +663,11 @@ function GPS_found(position) {
     document.getElementById("speed").innerHTML =
       "Speed: " + speed.toFixed(0) + " km/h";
 
-    if (speed > maxSpeed && timeGap >= START_DELAY) {
+    if (
+      speed > maxSpeed &&
+      timeGap >= START_DELAY &&
+      speed <= MAX_SPEED_POSSIBLE
+    ) {
       maxSpeed = speed;
       document.getElementById("maxspeed").innerHTML =
         "Max speed: " +
