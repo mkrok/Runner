@@ -393,7 +393,7 @@ const msToTime = (s) => {
   s = (s - ms) / 1000;
   var secs = s % 60;
   s = (s - secs) / 60;
-  var mins = s % 60;
+  var mins = s % 60 < 10 ? "0" + (s % 60) : s % 60;
   var hrs = (s - mins) / 60;
 
   return hrs + ":" + mins + ":" + secs + "." + ms;
